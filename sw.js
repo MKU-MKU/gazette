@@ -30,7 +30,7 @@
                          orphaned responses sitting in Cache Storage.
 ═══════════════════════════════════════════════════════════════ */
 
-const CACHE_NAME = 'ha-shell-v10'; // Bumped: getFile responses are now actually cached (previously dead code targeted drive.google.com, which nothing ever fetches directly — see CODE.GS's handleGetFile comment on why Drive is always proxied through this same script.google.com endpoint instead).
+const CACHE_NAME = 'ha-shell-v11'; // Bumped for the Gazette visual overhaul (index.html/user.html restyled) — forces old cached shell HTML/CSS to be replaced rather than served stale after this deploy.
 const SHELL = [
   './',
   './index.html',

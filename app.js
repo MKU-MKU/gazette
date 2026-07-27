@@ -1028,7 +1028,7 @@ const QUIZ = {
       <div style="font-family:var(--fd);font-size:.92rem;font-weight:700;color:var(--ros);margin-bottom:.6rem">Failed to Load</div>
       <div style="font-size:.78rem;color:var(--t2);line-height:1.6;margin-bottom:1rem">${esc(msg)}</div>
       <div style="display:flex;gap:.5rem">
-        <button id="quiz-err-retry" style="flex:1;padding:.58rem;background:linear-gradient(135deg,var(--amb2),var(--amb));border:none;border-radius:var(--r1);color:#0F0A00;font-weight:700;font-size:.82rem;cursor:pointer;font-family:var(--ff)">🔄 Retry</button>
+        <button id="quiz-err-retry" style="flex:1;padding:.58rem;background:var(--amb2);border:none;border-radius:var(--r1);color:#F4EFE2;font-weight:700;font-size:.82rem;cursor:pointer;font-family:var(--ff)">🔄 Retry</button>
         <button onclick="document.getElementById('quiz-error-card').remove()" style="padding:.58rem .9rem;background:var(--b0);border:1px solid var(--b1);border-radius:var(--r1);color:var(--t2);font-size:.82rem;cursor:pointer;font-family:var(--ff)">✕ Close</button>
       </div>
     </div>`;
@@ -1092,7 +1092,7 @@ const QUIZ = {
           🔀 Shuffle question order
         </label>
         <div style="display:flex;gap:.4rem">
-          <button id="qlm-start" style="flex:1;padding:.62rem;background:linear-gradient(135deg,var(--amb2),var(--amb));border:none;border-radius:var(--r2);color:#0F0A00;font-weight:700;font-size:.85rem;cursor:pointer;font-family:var(--ff)">Start →</button>
+          <button id="qlm-start" style="flex:1;padding:.62rem;background:var(--amb2);border:none;border-radius:var(--r2);color:#F4EFE2;font-weight:700;font-size:.85rem;cursor:pointer;font-family:var(--ff)">Start →</button>
           <button onclick="document.getElementById('quiz-limit-modal').remove()" style="padding:.62rem .9rem;background:var(--b0);border:1px solid var(--b1);border-radius:var(--r2);color:var(--t2);font-size:.83rem;cursor:pointer;font-family:var(--ff)">✕</button>
         </div>
       </div>`;
@@ -1292,7 +1292,7 @@ const QUIZ = {
         <div style="font-family:var(--fd);font-size:.92rem;font-weight:700;color:var(--t1);margin-bottom:.2rem">Unfinished exam found</div>
         <div style="font-size:.78rem;color:var(--t3);margin-bottom:1rem">${esc(snap.ch)} — ${answered}/${snap.qs.length} answered, ${fmt(adjustedLeft)} left on the clock. This was probably interrupted by a reload or a closed tab.</div>
         <div style="display:flex;gap:.4rem">
-          <button id="exam-resume-btn" style="flex:1;padding:.62rem;background:linear-gradient(135deg,var(--amb2),var(--amb));border:none;border-radius:var(--r2);color:#0F0A00;font-weight:700;font-size:.85rem;cursor:pointer;font-family:var(--ff)">▶️ Resume</button>
+          <button id="exam-resume-btn" style="flex:1;padding:.62rem;background:var(--amb2);border:none;border-radius:var(--r2);color:#F4EFE2;font-weight:700;font-size:.85rem;cursor:pointer;font-family:var(--ff)">▶️ Resume</button>
           <button id="exam-discard-btn" style="padding:.62rem .9rem;background:var(--b0);border:1px solid var(--b1);border-radius:var(--r2);color:var(--t2);font-size:.83rem;cursor:pointer;font-family:var(--ff)">Discard</button>
         </div>
       </div>`;
@@ -2197,7 +2197,7 @@ const TUTORIAL = {
         <div style="flex:1;overflow-y:auto;min-height:0" id="tut-body"></div>
         <div style="display:flex;gap:.4rem;margin-top:1rem">
           <button id="tut-back" style="padding:.6rem .9rem;background:var(--b0);border:1px solid var(--b1);border-radius:var(--r2);color:var(--t2);font-size:.82rem;cursor:pointer;font-family:var(--ff)">← Back</button>
-          <button id="tut-next" style="flex:1;padding:.62rem;background:linear-gradient(135deg,var(--amb2),var(--amb));border:none;border-radius:var(--r2);color:#0F0A00;font-weight:700;font-size:.85rem;cursor:pointer;font-family:var(--ff)">Next →</button>
+          <button id="tut-next" style="flex:1;padding:.62rem;background:var(--amb2);border:none;border-radius:var(--r2);color:#F4EFE2;font-weight:700;font-size:.85rem;cursor:pointer;font-family:var(--ff)">Next →</button>
         </div>
         <button id="tut-skip" style="margin-top:.55rem;background:none;border:none;color:var(--t3);font-size:.72rem;cursor:pointer;font-family:var(--ff);text-decoration:underline">Skip tutorial</button>
       </div>`;
