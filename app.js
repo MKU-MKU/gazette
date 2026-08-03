@@ -189,6 +189,57 @@ const QDB = (() => {
   return { get, set, del, keys, clear, migrateFromLocalStorage };
 })();
 function esc(s){return String(s||'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
+// Renders a question's optional figure (base64 data URI or https URL) as an
+// <img>. Returns '' for old-format questions that have no q.figure — so
+// every call site below is a no-op unless the question actually carries one.
+function figHtml(q){
+  if(!q || !q.figure) return '';
+  return `<img src="${esc(q.figure)}" alt="Figure for this question" class="qfig" loading="lazy" style="display:block;max-width:100%;height:auto;border-radius:8px;margin:.5rem 0 .75rem;border:1px solid var(--bd,#333)">`;
+}
+/* ═══════════════ 3b. NETCHECK — active reachability check ═══════════════
+   navigator.onLine (used to seed S.online above, and the 'online'/'offline'
+   window events below) only reports whether the device's network interface
+   is up — it says nothing about whether script.google.com is actually
+   reachable, and on installed PWAs / mobile browsers the online/offline
+   events are known to stop firing correctly after the app resumes from
+   background or sleep, leaving S.online stuck wrong until a full reload.
+   index.html already solves this with an active ping loop (checkNet());
+   this mirrors that here so user.html's "online/offline" status — and
+   therefore AUTH.restore()'s decision to trust cache vs. re-validate — is
+   based on a real round-trip, not just the browser's guess. */
+const NETCHECK = {
+  _timer: null,
+  async ping(){
+    if(S.forcedOffline) return S.online;
+    try{
+      const ctrl = new AbortController();
+      const to = setTimeout(()=>ctrl.abort(), 8000);
+      const r = await fetch(`${APPS}?${qs({action:'ping', _:Date.now()})}`, { signal: ctrl.signal, cache: 'no-store' });
+      clearTimeout(to);
+      if(!r.ok) throw new Error('HTTP '+r.status);
+      const data = await r.json();
+      // A 200 alone isn't proof of a real answer — confirm the body is
+      // actually the ping payload, not e.g. a captive-portal page or a
+      // masked failure, before trusting it.
+      const wasOnline = S.online;
+      S.online = !!data.pong || !!data.success;
+      if(S.online !== wasOnline){ _updateNetBtn(); _updateOfflineWarn(); }
+      return S.online;
+    }catch(e){
+      const wasOnline = S.online;
+      S.online = false;
+      if(wasOnline){ _updateNetBtn(); _updateOfflineWarn(); }
+      return false;
+    }
+  },
+  start(){
+    if(NETCHECK._timer) return;
+    // Don't ping immediately here — AUTH.restore() already awaits one ping
+    // at boot; this just keeps it fresh every 15s after that.
+    NETCHECK._timer = setInterval(()=>NETCHECK.ping(), 15000);
+  }
+};
+
 // Optional math-formula rendering. Question banks can write LaTeX between
 // $...$ (inline) or $$...$$ (block) and it'll render via KaTeX; plain-text
 // questions (the vast majority of existing content, which already uses
@@ -253,11 +304,13 @@ function normQ(raw,fid){
     if(typeof correct === 'string' && /^[a-eA-E]$/.test(correct.trim())){
       correct = 'abcde'.indexOf(correct.trim().toLowerCase());
     }
+    const figure = q.figure||q.fig||q.image||q.img||'';
     result.push({
       q: String(text).trim(),
       options: options.map(String),
       correct,
       explanation: q.explanation||q.explain||q.exp||q.solution||q.hint||'',
+      figure: figure ? String(figure).trim() : '',
       fileId: fid||'local',
       uid: `${fid||'local'}_${i}`
     });
@@ -328,15 +381,34 @@ const AUTH = {
     }
     // Online: re-validate against the server, same contract index.html uses.
     try{
+      // Confirm real connectivity with an actual round-trip before trusting
+      // navigator.onLine's guess — see NETCHECK.ping() above. This mirrors
+      // index.html's `await this.checkNet()` before resumeUserSession().
+      await NETCHECK.ping();
       const r = await netFetch(`${APPS}?${qs({action:'checkSession', token:u.token, username:u.username})}`, {redirect:'follow'});
       const res = await r.json();
-      if(!res.success){ AUTH._bounce(); return; }
+      if(!res.success){
+        // Any failure that isn't a definitive "this session is invalid"
+        // (sessionInvalid, from an expired/rotated/mismatched token — see
+        // CODE.GS's checkSession) shouldn't cost a genuinely permanent or
+        // still-valid-trial user their access. A cold-start hiccup, a
+        // malformed response, or a transient backend error all land here
+        // as res.success === false too, and previously bounced everyone
+        // unconditionally — even with a perfectly good cached session.
+        // Only hard-bounce when the session is explicitly rejected AND
+        // there's nothing valid cached to fall back on.
+        if(AUTH._isValidOffline(u)) AUTH._enter(u);
+        else AUTH._bounce();
+        return;
+      }
       const updated = AUTH._buildSession(u, res);
       _save(LS.USER, updated);
       if(updated.access.level === 'permanent' || updated.access.level === 'trial'){
         AUTH._enter(updated);
       } else {
-        // Expired, pending, or rejected — index.html owns that UI.
+        // Expired, pending, or rejected — index.html owns that UI. This IS
+        // a definitive server verdict (res.success was true), so it's
+        // trusted even over a cached session that looked valid before.
         AUTH._bounce();
       }
     }catch{
@@ -895,6 +967,7 @@ const REV = {
           <button class="ib" onclick="REV._removeOne('${kind}','${esc(q.uid||'')}')">🗑</button>
         </div>
         <div class="qt" style="font-size:.82rem">${esc(q.q)}</div>
+        ${figHtml(q)}
         <div style="margin-top:.3rem">${opts}</div>
         ${q.explanation?`<div class="expl show" style="margin-top:.45rem">${esc(q.explanation)}</div>`:''}
         ${tagPicker}
@@ -1371,6 +1444,9 @@ const QUIZ = {
       document.getElementById('fc-pf').style.width = `${((S.quiz.idx)/S.quiz.qs.length)*100}%`;
       document.getElementById('fc-qn').textContent = 'Q'+(S.quiz.idx+1);
       document.getElementById('fc-q').textContent = q.q;
+      const figEl = document.getElementById('fc-fig');
+      if(q.figure){ figEl.src = q.figure; figEl.style.display = 'block'; }
+      else { figEl.style.display = 'none'; figEl.removeAttribute('src'); }
 
       const isStarred = REV.has('bk', q.uid), isFlagged = REV.has('fl', q.uid);
       document.getElementById('fc-acts').innerHTML = `
@@ -1486,6 +1562,7 @@ const QUIZ = {
       <div class="eqc${savedAns!==null?' answered':''}" id="eqc-${qi}">
         <div class="qm"><span class="qn mono">Q${qi+1}</span><a class="ib" href="https://www.google.com/search?q=${gq}" target="_blank" rel="noopener" title="Search on Google" style="text-decoration:none;display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px">🔍</a></div>
         <div class="qt" style="font-size:.85rem">${esc(q.q)}</div>
+        ${figHtml(q)}
         ${q.options.map((opt,oi)=>{
           const sel = savedAns===oi;
           return `<div class="eo${sel?' sel':''}" role="button" tabindex="0" aria-pressed="${sel}" aria-label="Option ${String.fromCharCode(65+oi)}: ${esc(opt)}" onclick="QUIZ.exAnswer(${qi},${oi})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();QUIZ.exAnswer(${qi},${oi})}" id="eo-${qi}-${oi}">
@@ -1575,6 +1652,7 @@ const QUIZ = {
       return `<div class="qcard" style="border-left-color:${correctPick?'var(--ok)':'var(--bad)'}">
         <div class="qm"><span class="qn mono">Q${i+1}</span><span class="ctag ${correctPick?'tg':'tr'}">${correctPick?'Correct':a===null?'Skipped':'Wrong'}</span></div>
         <div class="qt" style="font-size:.82rem">${esc(q.q)}</div>
+        ${figHtml(q)}
         ${q.options.map((opt,oi)=>{
           let cls='eo';
           if(isOk(oi,q.correct)) cls+=' shc';
@@ -2270,6 +2348,7 @@ const APP = {
     AUTH.startPeriodicRecheck();
     CACHE.autoSync();
     QUIZ.checkResumableExam();
+    NETCHECK.start(); // keeps re-verifying every 15s so a stuck "offline" state (or a stale "online" one) self-corrects without needing a manual reload
   }
 };
 
@@ -2324,10 +2403,14 @@ const NET = {
     _updateOfflineWarn();
   }
 };
-window.addEventListener('online', ()=>{
-  S.online=true;
-  _updateNetBtn();
-  _updateOfflineWarn();
+// The browser's 'online' event means the network interface came up — it
+// doesn't guarantee script.google.com is reachable (captive portals, DNS
+// hiccups, ISP-side blocks). Confirm with a real ping rather than trusting
+// the event outright; NETCHECK.ping() itself flips S.online and refreshes
+// the UI, so this only needs to fire the extra toasts on top of that.
+window.addEventListener('online', async ()=>{
+  const reallyOnline = await NETCHECK.ping();
+  if(!reallyOnline) return; // interface is up but the backend still isn't reachable — stay in offline mode, no false "back online" toast
   if(!S.forcedOffline) toast('🌐 Back online');
   else toast('🌐 Network restored — still in forced offline mode');
 });
